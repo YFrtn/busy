@@ -268,6 +268,11 @@ def run_download(job_id, url, format_choice, format_id, audio_format, audio_qual
 
     cmd = [*YTDLP, "--no-playlist", "-o", out_template, "--no-warnings"]
 
+    # Point yt-dlp at the ffmpeg we found (Busy may have downloaded its own).
+    _ffmpeg = plat.which("ffmpeg")
+    if _ffmpeg:
+        cmd += ["--ffmpeg-location", os.path.dirname(_ffmpeg)]
+
     is_audio = format_choice == "audio"
     target_ext = None
 

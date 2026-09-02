@@ -22,9 +22,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # A windowed build (pythonw.exe / --noconsole) has no stdout at all; anything
 # that prints would then blow up deep inside a library.
-for _stream in ("stdout", "stderr"):
-    if getattr(sys, _stream, None) is None:
-        setattr(sys, _stream, open(os.devnull, "w"))
+for _name in ("stdout", "stderr"):
+    _stream = getattr(sys, _name, None)
+    if _stream is None:
+        setattr(sys, _name, open(os.devnull, "w"))
+        continue
+    # A Windows console defaults to a legacy codepage (cp1252 / cp866), where
+    # printing "→" or Cyrillic raises UnicodeEncodeError and kills the app.
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError, OSError):
+        pass
 
 import platform_utils as plat  # noqa: E402  (must run before anything spawns tools)
 

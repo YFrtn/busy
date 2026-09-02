@@ -1,0 +1,28 @@
+#!/bin/bash
+# Busy — обёртка, запускающая установленный из исходников код (~/.busy).
+
+SCRIPT_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+if [ -f "$SCRIPT_DIR/busy.py" ]; then
+    APP_DIR="$SCRIPT_DIR"          # запуск из папки с исходниками
+elif [ -f "$HOME/.busy/busy.py" ]; then
+    APP_DIR="$HOME/.busy"          # обычная установка
+else
+    osascript -e 'display dialog "Busy: файлы не найдены.\n\nЗапустите установщик:\n/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/YFrtn/busy/main/install.sh)\"" buttons {"OK"} default button 1 with title "Busy" with icon stop'
+    exit 1
+fi
+
+# Приложение, запущенное из Finder, не наследует PATH оболочки
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+if ! command -v python3 &>/dev/null; then
+    osascript -e 'display dialog "Python 3 не найден.\n\nУстановите: brew install python3" buttons {"OK"} default button 1 with title "Busy" with icon stop'
+    exit 1
+fi
+
+cd "$APP_DIR"
+if [ ! -d venv ]; then
+    python3 -m venv venv
+    ./venv/bin/pip install -q -r requirements.txt
+fi
+
+exec "$APP_DIR/venv/bin/python" "$APP_DIR/busy.py"

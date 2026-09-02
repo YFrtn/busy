@@ -1,0 +1,12 @@
+# Core
+flask>=3.0
+yt-dlp>=2024.8.6
+
+# Native window (WKWebView on macOS, WebView2 on Windows, WebKitGTK on Linux)
+pywebview>=5.0
+
+# Platform backends for pywebview
+pyobjc-core>=10.0; sys_platform == "darwin"
+pyobjc-framework-Cocoa>=10.0; sys_platform == "darwin"
+pyobjc-framework-WebKit>=10.0; sys_platform == "darwin"
+pythonnet>=3.0.3; sys_platform == "win32"

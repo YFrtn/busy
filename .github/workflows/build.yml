@@ -1,0 +1,100 @@
+name: Build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Windows (x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+      - name: Build
+        run: pyinstaller Busy.spec --noconfirm --clean
+      - name: Smoke test
+        run: ./dist/Busy/Busy.exe --ytdlp --version
+      - name: Package
+        run: Compress-Archive -Path dist/Busy/* -DestinationPath Busy-windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Busy-windows-x64
+          path: Busy-windows-x64.zip
+
+  macos:
+    name: macOS (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14   # Apple Silicon
+            arch: arm64
+          - runner: macos-13   # Intel
+            arch: x86_64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+      - name: Build
+        run: pyinstaller Busy.spec --noconfirm --clean
+      - name: Smoke test
+        run: ./dist/Busy.app/Contents/MacOS/Busy --ytdlp --version
+      - name: Sign (ad-hoc)
+        run: codesign --force --deep --sign - dist/Busy.app
+      - name: Package
+        # ditto keeps the bundle's symlinks and permissions intact
+        run: ditto -c -k --keepParent dist/Busy.app Busy-macos-${{ matrix.arch }}.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Busy-macos-${{ matrix.arch }}
+          path: Busy-macos-${{ matrix.arch }}.zip
+
+  release:
+    name: Publish release
+    needs: [windows, macos]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.zip
+          generate_release_notes: true
+          body: |
+            ## Установка
+
+            **Windows 10/11** — скачайте `Busy-windows-x64.zip`, распакуйте и запустите `Busy.exe`.
+            SmartScreen может предупредить о неизвестном издателе: «Подробнее» → «Выполнить в любом случае».
+
+            **macOS** — скачайте `Busy-macos-arm64.zip` (Apple Silicon: M1/M2/M3/M4)
+            или `Busy-macos-x86_64.zip` (Intel), распакуйте, перетащите `Busy.app` в «Программы»
+            и один раз выполните в Терминале:
+
+            ```
+            xattr -dr com.apple.quarantine /Applications/Busy.app
+            ```
+
+            FFmpeg на macOS ставится командой `brew install ffmpeg`;
+            на Windows Busy скачает его сам при первом запуске.

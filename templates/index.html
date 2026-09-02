@@ -1,0 +1,2105 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Busy</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --bg2: #f4f4f5;
+      --fg: #09090b;
+      --accent: #e85d2a;
+      --accent-hover: #d04e1f;
+      --muted: #a1a1aa;
+      --card: #f4f4f5;
+      --card-border: #e4e4e7;
+      --success: #16a34a;
+      --error: #dc2626;
+      --radius: 16px;
+      --shimmer: linear-gradient(90deg, #f4f4f5 25%, #fafafa 50%, #f4f4f5 75%);
+    }
+    [data-theme="dark"] {
+      --bg: #0a0a0a;
+      --bg2: #18181b;
+      --fg: #fafafa;
+      --accent: #f0743a;
+      --accent-hover: #e85d2a;
+      --muted: #71717a;
+      --card: #18181b;
+      --card-border: #27272a;
+      --shimmer: linear-gradient(90deg, #18181b 25%, #27272a 50%, #18181b 75%);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'DM Mono', ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      overflow-x: hidden;
+      transition: background 0.3s, color 0.3s;
+      -webkit-user-select: auto;
+    }
+    body::before {
+      content: '';
+      display: block;
+      height: env(titlebar-area-height, 0px);
+      -webkit-app-region: drag;
+    }
+
+    .page {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 24px 24px 40px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 0;
+      padding: 8px 0;
+      position: relative;
+    }
+    .brand h1 {
+      font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+      font-size: 1.6rem;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+    .brand h1 em { font-style: italic; color: var(--accent); }
+    .header-actions {
+      position: absolute;
+      right: 0;
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    /* Mascot */
+    .mascot {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    .mascot svg { transition: transform 0.3s; }
+    .mascot:hover svg { transform: scale(1.05); }
+    .header-actions {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+    .icon-btn {
+      width: 34px; height: 34px;
+      border: none;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .icon-btn:hover { color: var(--fg); background: var(--bg2); }
+    .icon-btn svg { width: 18px; height: 18px; }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      margin-bottom: 0;
+      border-bottom: 1px solid var(--card-border);
+      padding: 0;
+    }
+    .tab {
+      padding: 10px 18px;
+      font-family: 'DM Mono', ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.72rem;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: all 0.15s;
+    }
+    .tab.active { color: var(--fg); border-bottom-color: var(--fg); }
+    .tab:hover:not(.active) { color: var(--fg); }
+
+    .tab-content { display: none; flex: 1; min-width: 0; }
+    .tab-content.active { display: flex; flex-direction: column; }
+
+    /* Input area — Ollama-style */
+    .input-area {
+      position: relative;
+      margin-bottom: 0;
+      margin-top: 0;
+      padding-top: 0;
+    }
+    textarea {
+      width: 100%;
+      padding: 16px 18px;
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      background: var(--bg2);
+      color: var(--fg);
+      font-family: 'DM Mono', ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.85rem;
+      outline: none;
+      resize: none;
+      min-height: 52px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    textarea:focus {
+      border-color: var(--muted);
+      box-shadow: 0 0 0 1px var(--muted);
+    }
+    textarea::placeholder { color: var(--muted); }
+    .hint {
+      font-size: 0.65rem;
+      color: var(--muted);
+      margin: 6px 0 12px 0;
+      letter-spacing: 0.02em;
+      text-align: center;
+    }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 0;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+    }
+    .pill-group {
+      display: flex;
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      overflow: hidden;
+      background: var(--bg2);
+    }
+    .pill {
+      padding: 7px 14px;
+      font-family: 'DM Mono', ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.7rem;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .pill.active { background: var(--fg); color: var(--bg); border-radius: 18px; }
+    .pill:not(.active):hover { color: var(--fg); }
+
+    /* Audio options */
+    .audio-opts {
+      display: none;
+      gap: 6px;
+      align-items: center;
+    }
+    .audio-opts.show { display: flex; }
+    .mini-select {
+      padding: 7px 10px;
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      background: var(--bg2);
+      color: var(--fg);
+      font-family: 'DM Mono', ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.7rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .fetch-btn {
+      padding: 9px 20px;
+      border: none;
+      border-radius: 20px;
+      background: var(--fg);
+      color: var(--bg);
+      font-family: 'DM Mono', ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .fetch-btn:hover { opacity: 0.8; }
+    .fetch-btn:active { transform: scale(0.97); }
+    .fetch-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* Cards */
+    .cards { margin-top: 16px; }
+
+    .card {
+      display: flex;
+      gap: 14px;
+      border: none;
+      border-radius: var(--radius);
+      background: var(--bg2);
+      padding: 14px;
+      margin-bottom: 8px;
+      animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card-thumb {
+      width: 110px;
+      min-width: 110px;
+      height: 74px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--card-border);
+      flex-shrink: 0;
+    }
+    .card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .card-thumb .no-thumb {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted);
+    }
+    .card-thumb .no-thumb svg { width: 24px; height: 24px; opacity: 0.4; }
+    .card-thumb.loading {
+      background: var(--shimmer);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    .skeleton-line {
+      height: 12px;
+      border-radius: 4px;
+      background: var(--shimmer);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      margin-bottom: 6px;
+    }
+    .skeleton-line.short { width: 40%; height: 10px; }
+    .skeleton-line.medium { width: 75%; }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .card-body {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column; justify-content: center;
+    }
+    .card-title {
+      font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+      font-size: 1rem;
+      line-height: 1.3;
+      margin-bottom: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .card-meta {
+      font-size: 0.68rem;
+      color: var(--muted);
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .card-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .card-dl-btn {
+      padding: 5px 12px;
+      border: none;
+      border-radius: 14px;
+      background: var(--fg);
+      color: var(--bg);
+      font-family: 'DM Mono', ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.68rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .card-dl-btn:hover { opacity: 0.8; }
+    .card-dl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .card-dl-btn.done { background: var(--success); color: #fff; }
+    .card-dl-btn.error { background: var(--error); color: #fff; }
+
+    .card-status { font-size: 0.68rem; color: var(--muted); }
+    .card-status.downloading { color: var(--accent); }
+    .card-status.done { color: var(--success); }
+    .card-status.error { color: var(--error); }
+
+    /* Progress bar */
+    .progress-bar {
+      width: 100%;
+      height: 4px;
+      background: var(--bg2);
+      border-radius: 2px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.3s;
+      width: 0%;
+    }
+
+    .q-chip {
+      padding: 3px 9px;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      background: transparent;
+      color: var(--muted);
+      font-family: 'DM Mono', ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.62rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .q-chip.active { border-color: var(--fg); color: var(--fg); background: var(--bg); }
+    .q-chip:hover:not(.active) { border-color: var(--muted); }
+
+    .card.card-error { background: rgba(220,38,38,0.04); }
+    .card-error-icon {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(220,38,38,0.08); color: var(--error); border-radius: 10px;
+    }
+    .card-error-icon svg { width: 24px; height: 24px; }
+    .card-error-msg { font-size: 0.72rem; color: var(--error); margin-top: 2px; line-height: 1.4; }
+    .card-error-url { font-size: 0.65rem; color: var(--muted); word-break: break-all; margin-top: 4px; }
+
+    .dl-all-bar { display: flex; gap: 8px; margin-top: 12px; }
+    .dl-all-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 20px;
+      background: var(--fg);
+      color: var(--bg);
+      font-family: 'DM Mono', ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .dl-all-btn:hover { opacity: 0.8; }
+    .dl-all-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* History */
+    .history-empty {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+    .history-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-top: 16px;
+    }
+    .history-toolbar input {
+      padding: 8px 14px;
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      background: var(--bg2);
+      color: var(--fg);
+      font-family: 'DM Mono', ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.74rem;
+      outline: none;
+      width: 240px;
+    }
+    .history-toolbar input:focus { border-color: var(--muted); }
+    .history-toolbar input::placeholder { color: var(--muted); }
+    .clear-btn {
+      padding: 6px 14px;
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      background: transparent;
+      color: var(--muted);
+      font-family: 'DM Mono', ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.68rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-transform: uppercase;
+    }
+    .clear-btn:hover { color: var(--error); border-color: var(--error); }
+
+    .hist-card {
+      display: flex;
+      gap: 12px;
+      padding: 10px 14px;
+      border: none;
+      border-radius: 12px;
+      background: var(--bg2);
+      margin-bottom: 6px;
+      align-items: center;
+      animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .hist-icon {
+      width: 34px; height: 34px;
+      border-radius: 10px;
+      background: var(--card-border);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      color: var(--muted);
+    }
+    .hist-icon svg { width: 14px; height: 14px; }
+    .hist-icon.audio { color: var(--accent); background: rgba(232,93,42,0.1); }
+    .hist-body { flex: 1; min-width: 0; }
+    .hist-title {
+      font-size: 0.78rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .hist-meta {
+      font-size: 0.62rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .hist-actions { display: flex; gap: 3px; flex-shrink: 0; }
+    .hist-btn {
+      width: 30px; height: 30px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .hist-btn:hover { color: var(--fg); background: var(--card-border); }
+    .hist-btn.danger:hover { color: var(--error); background: rgba(220,38,38,0.08); }
+    .hist-btn svg { width: 14px; height: 14px; }
+
+    .spin {
+      display: inline-block;
+      width: 10px; height: 10px;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .footer {
+      margin-top: 16px;
+      text-align: center;
+      font-size: 0.62rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      line-height: 1.8;
+    }
+
+    /* Drop zone overlay */
+    .drop-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(232,93,42,0.04);
+      border: 2px dashed var(--accent);
+      border-radius: 20px;
+      margin: 16px;
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+      font-size: 1.8rem;
+      color: var(--accent);
+    }
+    .drop-overlay.visible { display: flex; }
+
+    /* Telegram tab */
+    .tg-status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 14px;
+      background: var(--bg2);
+      margin: 16px 0;
+      width: 100%;
+      min-width: 0;
+    }
+    .tg-status-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 10px;
+      background: var(--muted);
+    }
+    .tg-status-dot.online { background: var(--success); }
+    .tg-status-text {
+      font-size: 0.78rem;
+      color: var(--fg);
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .tg-btn {
+      padding: 7px 14px;
+      border: none;
+      border-radius: 14px;
+      background: var(--fg);
+      color: var(--bg);
+      font-family: 'DM Mono', ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.72rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      letter-spacing: 0.03em;
+    }
+    .tg-btn:hover { opacity: 0.8; }
+    .tg-btn:active { transform: scale(0.97); }
+    .tg-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .tg-btn.danger { background: var(--error); color: #fff; }
+    .tg-btn.danger:hover { opacity: 0.8; }
+
+    .tg-qr-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px;
+      border: none;
+      border-radius: var(--radius);
+      background: var(--bg2);
+      margin-bottom: 16px;
+    }
+    .tg-qr-block pre {
+      font-size: 4px;
+      line-height: 4.5px;
+      letter-spacing: 0.5px;
+      color: #000;
+      background: #fff;
+      padding: 8px;
+      border-radius: 10px;
+      margin-bottom: 12px;
+      user-select: none;
+    }
+    .tg-qr-hint {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .tg-search {
+      width: 100%;
+      padding: 10px 16px;
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      background: var(--bg2);
+      color: var(--fg);
+      font-family: 'DM Mono', ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.78rem;
+      outline: none;
+      margin-bottom: 10px;
+      transition: border-color 0.15s;
+    }
+    .tg-search:focus { border-color: var(--muted); }
+
+    .tg-chat-list { margin-bottom: 12px; }
+    .tg-chat {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border: none;
+      border-radius: 12px;
+      background: var(--bg2);
+      margin-bottom: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tg-chat:hover { background: var(--card-border); }
+    .tg-chat.selected { background: var(--card-border); }
+    .tg-chat-icon {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: var(--card-border);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .tg-chat-info { flex: 1; min-width: 0; overflow: hidden; }
+    .tg-chat-name {
+      font-size: 0.78rem;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tg-chat-meta {
+      font-size: 0.65rem;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+
+    .tg-dl-options {
+      padding: 18px;
+      border: none;
+      border-radius: var(--radius);
+      background: var(--bg2);
+      margin-bottom: 12px;
+    }
+    .tg-dl-options h3 {
+      font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+      font-size: 1.1rem;
+      font-weight: 400;
+      margin-bottom: 14px;
+    }
+    .tg-opt-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .tg-opt-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      min-width: 70px;
+    }
+    .tg-limit-input {
+      width: 100px;
+      padding: 7px 12px;
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: 'DM Mono', ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.74rem;
+      outline: none;
+    }
+    .tg-limit-input:focus { border-color: var(--muted); }
+
+    .tg-progress-area {
+      padding: 16px;
+      border: none;
+      border-radius: 14px;
+      background: var(--bg2);
+      margin-bottom: 12px;
+    }
+    .tg-progress-text {
+      font-size: 0.74rem;
+      color: var(--fg);
+      margin-bottom: 0;
+      word-break: break-all;
+    }
+
+    .tg-url-input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      background: var(--bg2);
+      color: var(--fg);
+      font-family: 'DM Mono', ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.78rem;
+      outline: none;
+      margin-bottom: 10px;
+      transition: border-color 0.15s;
+    }
+    .tg-url-input:focus { border-color: var(--muted); }
+
+    .tg-section-title {
+      font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+      font-size: 1.1rem;
+      font-weight: 400;
+      margin-bottom: 10px;
+      margin-top: 8px;
+    }
+
+    .tg-msg { font-size: 0.76rem; color: var(--muted); text-align: center; padding: 24px; }
+
+    /* Onboarding */
+    .dep-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 16px;
+      background: var(--bg2);
+      border-radius: 14px;
+      margin-bottom: 8px;
+    }
+    .dep-icon {
+      width: 32px; height: 32px;
+      border-radius: 10px;
+      background: var(--card-border);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .dep-icon.ok { background: rgba(22,163,74,0.1); color: var(--success); }
+    .dep-info { flex: 1; min-width: 0; }
+    .dep-name { font-size: 0.82rem; font-weight: 500; margin-bottom: 2px; }
+    .dep-desc { font-size: 0.72rem; color: var(--muted); line-height: 1.4; }
+    .dep-status { font-size: 0.7rem; margin-top: 4px; }
+    .dep-status.ok { color: var(--success); }
+    .dep-status.missing { color: var(--error); }
+    .dep-hint { font-size: 0.66rem; color: var(--muted); margin-top: 4px; }
+    .dep-hint code { background: var(--bg2); padding: 2px 5px; border-radius: 4px; }
+    .dep-action { flex-shrink: 0; }
+
+    /* Compress tab */
+    .cmp-drop {
+      border: 2px dashed var(--card-border);
+      border-radius: 16px;
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: var(--bg2);
+    }
+    .cmp-drop:hover { border-color: var(--muted); }
+    .cmp-drop.has-file { border-style: solid; border-color: var(--fg); }
+    .cmp-drop.dragover { border-color: var(--accent); background: rgba(232,93,42,0.04); }
+
+    @media (max-width: 500px) {
+      .brand h1 { font-size: 1.3rem; }
+      .page { padding: 16px 14px 32px; }
+      .card { flex-direction: column; gap: 10px; }
+      .card-thumb { width: 100%; min-width: unset; height: 160px; }
+      .card-title { white-space: normal; }
+      .controls { flex-wrap: wrap; }
+      .fetch-btn { width: 100%; }
+      .history-toolbar { flex-direction: column; gap: 8px; }
+      .history-toolbar input { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="drop-overlay" id="dropOverlay">Перетащите ссылку сюда</div>
+
+  <!-- Onboarding: dependency check -->
+  <div id="onboarding" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:1000;overflow-y:auto">
+    <div style="max-width:560px;margin:0 auto;padding:40px 24px">
+      <h1 style="font-family:'Instrument Serif',serif;font-size:2rem;text-align:center;margin-bottom:8px">Добро пожаловать в <em style="color:var(--accent)">Busy</em></h1>
+      <p style="text-align:center;color:var(--muted);font-size:0.8rem;margin-bottom:28px">Перед началом нужно установить несколько инструментов</p>
+      <div id="depsList"></div>
+      <div style="text-align:center;margin-top:24px">
+        <button class="fetch-btn" id="depsDoneBtn" onclick="checkDepsAndContinue()" style="padding:12px 32px">Проверить снова</button>
+        <button class="tg-btn" style="background:var(--bg2);color:var(--fg);margin-left:8px;padding:12px 24px" onclick="skipOnboarding()">Пропустить</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="page">
+    <div class="header">
+      <div class="brand">
+        <h1><em>Busy</em></h1>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="folderBtn" title="Открыть папку загрузок" onclick="openFolder()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </button>
+        <button class="icon-btn" id="themeBtn" title="Сменить тему" onclick="toggleTheme()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="download" onclick="switchTab(this)">Скачать</button>
+      <button class="tab" data-tab="telegram" onclick="switchTab(this)">Telegram</button>
+      <button class="tab" data-tab="split" onclick="switchTab(this)">Нарезка</button>
+      <button class="tab" data-tab="history" onclick="switchTab(this)">История</button>
+    </div>
+
+    <!-- Download tab -->
+    <div class="tab-content active" id="tab-download">
+      <!-- Mascot: sleeping bus at desk -->
+      <div class="mascot" id="mascot">
+        <svg viewBox="0 0 200 180" width="140" height="126" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <g stroke="var(--fg)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <!-- Table -->
+            <path d="M30 130 L170 130"/>
+            <line x1="45" y1="130" x2="38" y2="172"/>
+            <line x1="155" y1="130" x2="162" y2="172"/>
+            <line x1="60" y1="130" x2="55" y2="172"/>
+            <line x1="140" y1="130" x2="145" y2="172"/>
+            <!-- Papers on table -->
+            <rect x="120" y="118" width="22" height="16" rx="1" fill="var(--bg)" stroke="var(--fg)" stroke-width="1.8"/>
+            <rect x="126" y="114" width="22" height="16" rx="1" fill="var(--bg)" stroke="var(--fg)" stroke-width="1.8"/>
+            <circle cx="137" cy="122" r="3" stroke="var(--fg)" stroke-width="1.2" fill="none"/>
+            <path d="M132 126 L142 126" stroke="var(--fg)" stroke-width="1"/>
+            <!-- Pencil -->
+            <line x1="108" y1="128" x2="118" y2="118" stroke="var(--fg)" stroke-width="2"/>
+            <line x1="118" y1="118" x2="120" y2="116" stroke="var(--accent)" stroke-width="2"/>
+            <!-- Paper under bus face -->
+            <rect x="52" y="118" width="30" height="18" rx="1" fill="var(--bg)" stroke="var(--fg)" stroke-width="1.5"/>
+            <path d="M56 123 L74 123 M56 127 L70 127 M56 131 L72 131" stroke="var(--fg)" stroke-width="0.8"/>
+            <!-- Bus body -->
+            <rect x="50" y="60" width="80" height="45" rx="14" fill="var(--bg)" stroke="var(--fg)" stroke-width="2.5"/>
+            <!-- Bus top visor -->
+            <path d="M58 60 L58 52 Q58 46 64 46 L76 46 Q82 46 82 52 L82 60" fill="var(--bg)" stroke="var(--fg)" stroke-width="2.5"/>
+            <!-- Visor shine -->
+            <ellipse cx="70" cy="52" rx="6" ry="3" fill="none" stroke="var(--fg)" stroke-width="1.2"/>
+            <!-- Bus windows -->
+            <rect x="58" y="68" width="14" height="10" rx="3" fill="var(--bg2)" stroke="var(--fg)" stroke-width="1.8"/>
+            <rect x="76" y="68" width="14" height="10" rx="3" fill="var(--bg2)" stroke="var(--fg)" stroke-width="1.8"/>
+            <rect x="94" y="68" width="28" height="10" rx="3" fill="var(--bg2)" stroke="var(--fg)" stroke-width="1.8"/>
+            <!-- Wheels -->
+            <circle cx="70" cy="105" r="7" fill="var(--bg)" stroke="var(--fg)" stroke-width="2.5"/>
+            <circle cx="70" cy="105" r="3" fill="var(--bg2)" stroke="var(--fg)" stroke-width="1.5"/>
+            <circle cx="112" cy="105" r="7" fill="var(--bg)" stroke="var(--fg)" stroke-width="2.5"/>
+            <circle cx="112" cy="105" r="3" fill="var(--bg2)" stroke="var(--fg)" stroke-width="1.5"/>
+            <!-- Sleeping face (tilted, resting on table) -->
+            <!-- Closed eyes -->
+            <path d="M68 88 Q72 92 76 88" stroke="var(--fg)" stroke-width="2" fill="none"/>
+            <path d="M84 88 Q88 92 92 88" stroke="var(--fg)" stroke-width="2" fill="none"/>
+            <!-- Mouth (sleepy) -->
+            <path d="M78 96 Q82 99 86 96" stroke="var(--fg)" stroke-width="1.8" fill="none"/>
+            <!-- Drool -->
+            <path d="M86 97 Q87 104 84 108" stroke="var(--fg)" stroke-width="1.5" fill="none"/>
+            <!-- Zzz -->
+            <text x="28" y="52" font-family="'Instrument Serif', Georgia, 'Times New Roman', serif" font-size="16" font-weight="700" fill="var(--fg)" opacity="0.7">Z</text>
+            <text x="18" y="38" font-family="'Instrument Serif', Georgia, 'Times New Roman', serif" font-size="13" font-weight="700" fill="var(--fg)" opacity="0.5">Z</text>
+            <text x="10" y="26" font-family="'Instrument Serif', Georgia, 'Times New Roman', serif" font-size="10" font-weight="700" fill="var(--fg)" opacity="0.3">Z</text>
+            <!-- Bus bumper -->
+            <line x1="128" y1="95" x2="134" y2="95" stroke="var(--fg)" stroke-width="2.5"/>
+          </g>
+        </svg>
+      </div>
+
+      <div class="input-area">
+        <textarea id="urls" placeholder="Вставьте ссылку для скачивания..." rows="2"></textarea>
+      </div>
+      <p class="hint">YouTube, TikTok, Instagram, Twitter/X, Reddit и 1000+ сайтов</p>
+
+      <div class="controls">
+        <div class="pill-group">
+          <button class="pill active" data-format="video" onclick="setFormat(this)">MP4</button>
+          <button class="pill" data-format="audio" onclick="setFormat(this)">MP3</button>
+        </div>
+        <div class="audio-opts" id="audioOpts">
+          <select class="mini-select" id="audioFormat">
+            <option value="mp3">MP3</option>
+            <option value="m4a">M4A</option>
+            <option value="flac">FLAC</option>
+            <option value="wav">WAV</option>
+            <option value="aac">AAC</option>
+            <option value="opus">OPUS</option>
+          </select>
+          <select class="mini-select" id="audioQuality">
+            <option value="320k">320k</option>
+            <option value="256k">256k</option>
+            <option value="192k" selected>192k</option>
+            <option value="128k">128k</option>
+            <option value="64k">64k</option>
+          </select>
+        </div>
+        <button class="fetch-btn" id="goBtn" onclick="go()">Загрузить</button>
+      </div>
+
+      <div id="cards" class="cards"></div>
+
+      <div class="footer"></div>
+    </div>
+
+    <!-- Telegram tab -->
+    <div class="tab-content" id="tab-telegram">
+      <div id="tgStatusBar" class="tg-status-bar">
+        <span class="tg-status-text">
+          <span class="tg-status-dot" id="tgDot"></span>
+          <span id="tgStatusLabel">Проверка...</span>
+        </span>
+        <button class="tg-btn" id="tgLoginBtn" style="display:none" onclick="tgLogin()">Войти через QR</button>
+        <button class="tg-btn danger" id="tgLogoutBtn" style="display:none" onclick="tgLogout()">Выйти</button>
+      </div>
+
+      <div id="tgQrBlock" class="tg-qr-block" style="display:none">
+        <pre id="tgQrPre"></pre>
+        <div class="tg-qr-hint">Telegram &rarr; Настройки &rarr; Устройства &rarr; Подключить устройство<br>Отсканируйте QR-код</div>
+        <div style="margin-top:14px"><span class="spin"></span> <span style="font-size:0.74rem;color:var(--muted)">Ожидание сканирования...</span></div>
+      </div>
+
+      <div id="tgNotInstalled" class="tg-msg" style="display:none">
+        <strong>TDL не установлен</strong><br><br>
+        Установите: <code id="tdlInstallHint" style="background:var(--bg2);padding:4px 8px;border-radius:6px">brew install telegram-downloader</code>
+      </div>
+
+      <!-- Chat list view -->
+      <div id="tgChatListView" style="display:none">
+        <input type="text" class="tg-search" id="tgChatSearch" placeholder="Поиск чатов..." oninput="filterTgChats()">
+        <div id="tgChatList" class="tg-chat-list"></div>
+      </div>
+
+      <!-- Chat detail view (download options) -->
+      <div id="tgChatDetail" style="display:none">
+        <button class="tg-btn" style="margin-bottom:16px;background:var(--card);color:var(--fg);border:1.5px solid var(--card-border)" onclick="tgBackToList()">
+          &larr; Назад
+        </button>
+
+        <div class="tg-dl-options">
+          <h3 id="tgSelectedChatName"></h3>
+          <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px">
+            <button class="tg-btn" style="width:100%;padding:14px;font-size:0.82rem;text-align:left" onclick="tgStartJob({chat_id: tgSelectedChatId, action:'all'})">
+              Скачать всё (медиа + текст)
+            </button>
+            <button class="tg-btn" style="width:100%;padding:14px;font-size:0.82rem;text-align:left" onclick="tgStartJob({chat_id: tgSelectedChatId, action:'media'})">
+              Скачать все медиафайлы
+            </button>
+            <button class="tg-btn" style="width:100%;padding:14px;font-size:0.82rem;text-align:left" onclick="tgStartJob({chat_id: tgSelectedChatId, action:'video'})">
+              Скачать только видео
+            </button>
+            <button class="tg-btn" style="width:100%;padding:14px;font-size:0.82rem;text-align:left" onclick="tgStartJob({chat_id: tgSelectedChatId, action:'audio'})">
+              Скачать только аудио
+            </button>
+            <button class="tg-btn" style="width:100%;padding:14px;font-size:0.82rem;text-align:left" onclick="tgStartJob({chat_id: tgSelectedChatId, action:'photo'})">
+              Скачать только фото
+            </button>
+            <button class="tg-btn" style="width:100%;padding:14px;font-size:0.82rem;text-align:left" onclick="tgStartJob({chat_id: tgSelectedChatId, action:'docs'})">
+              Скачать только документы
+            </button>
+            <button class="tg-btn" style="width:100%;padding:14px;font-size:0.82rem;text-align:left" onclick="tgStartJob({chat_id: tgSelectedChatId, action:'text'})">
+              Скачать переписку (текст)
+            </button>
+          </div>
+        </div>
+
+        <!-- Progress -->
+        <div id="tgProgress" class="tg-progress-area" style="display:none;margin-top:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div class="tg-progress-text"><span class="spin"></span> <span id="tgProgressText">Starting...</span></div>
+            <button class="tg-btn danger" style="flex-shrink:0;padding:6px 14px;font-size:0.72rem" onclick="tgStopJob()">Стоп</button>
+          </div>
+          <div class="progress-bar" style="margin-top:10px"><div class="progress-bar-fill" id="tgProgressBar" style="width:0%"></div></div>
+        </div>
+        <div id="tgDone" class="tg-msg" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- Split tab -->
+    <div class="tab-content" id="tab-split">
+      <div style="padding-top:16px">
+        <div style="text-align:center;font-size:0.78rem;color:var(--muted);margin-bottom:14px;line-height:1.6">
+          Вставьте аудио — длительность определится сама,<br>файл нарежется на части примерно по 20 минут
+        </div>
+
+        <!-- Drop zone / file picker -->
+        <div class="cmp-drop" id="splDrop">
+          <input type="file" id="splFileInput" accept=".m4a,.mp3,.wav,.aac,.ogg,.opus,.flac,.wma,.mp4,.mov,.aiff,.caf" style="position:absolute;opacity:0;pointer-events:none" onchange="splFilePicked(this)">
+          <div id="splDropLabel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" width="32" height="32" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <div style="margin-top:8px;font-size:0.78rem;color:var(--muted)">Перетащите аудио сюда или нажмите</div>
+          </div>
+          <div id="splFileInfo" style="display:none">
+            <div id="splFileName" style="font-size:0.82rem;font-weight:500"></div>
+            <div id="splFileSize" style="font-size:0.7rem;color:var(--muted);margin-top:4px"></div>
+            <div style="margin-top:8px;font-size:0.68rem;color:var(--accent);cursor:pointer" onclick="event.stopPropagation();splReset()">Выбрать другой</div>
+          </div>
+        </div>
+
+        <!-- Progress -->
+        <div id="splProgress" style="display:none;margin-top:16px">
+          <div class="tg-progress-area">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div class="tg-progress-text"><span class="spin"></span> <span id="splProgressText">Нарезка...</span></div>
+              <button class="tg-btn danger" style="flex-shrink:0;padding:6px 14px;font-size:0.72rem" onclick="stopSplit()">Стоп</button>
+            </div>
+            <div class="progress-bar" style="margin-top:10px"><div class="progress-bar-fill" id="splProgressBar"></div></div>
+          </div>
+        </div>
+
+        <!-- Result -->
+        <div id="splResult" style="display:none;margin-top:16px">
+          <div id="splResultText"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- History tab -->
+    <div class="tab-content" id="tab-history">
+      <div class="history-toolbar">
+        <input type="text" id="histSearch" placeholder="Поиск в истории..." oninput="filterHistory()">
+        <button class="clear-btn" onclick="clearHistory()">Очистить всё</button>
+      </div>
+      <div id="histList"></div>
+    </div>
+  </div>
+
+  <script>
+    // ---- State ----
+    // Filled from /api/config — the app runs on macOS, Windows and Linux, and
+    // the wording ("Finder" vs "Проводник") follows the host OS.
+    let PLATFORM = { os: 'mac', file_manager: 'Finder', can_auto_install: true };
+    const revealLabel = () => 'Показать в ' + PLATFORM.file_manager;
+
+    async function loadPlatform() {
+      try {
+        const cfg = await (await fetch('/api/config')).json();
+        if (cfg.platform) PLATFORM = cfg.platform;
+        if (cfg.tdl_hint) {
+          const el = document.getElementById('tdlInstallHint');
+          if (el) el.textContent = cfg.tdl_hint;
+        }
+        document.querySelectorAll('[data-reveal-label]').forEach(el => {
+          el.textContent = revealLabel();
+          el.title = revealLabel();
+        });
+      } catch {}
+    }
+
+    // Open external links in the real browser: window.open does nothing inside
+    // an embedded webview on some platforms.
+    function openExternal(url) {
+      fetch('/api/open-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      }).catch(() => window.open(url, '_blank'));
+    }
+
+    let currentFormat = 'video';
+    let cardData = [];
+    let historyData = [];
+
+    // ---- Onboarding (dependency check) ----
+    async function checkDepsAndContinue() {
+      const btn = document.getElementById('depsDoneBtn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Проверяю...'; }
+      try {
+        const res = await fetch('/api/deps/check');
+        const data = await res.json();
+        renderDeps(data.deps);
+        if (data.ready) {
+          document.getElementById('onboarding').style.display = 'none';
+          localStorage.setItem('busy-onboarding-done', '1');
+        }
+      } catch {}
+      if (btn) { btn.disabled = false; btn.textContent = 'Проверить снова'; }
+    }
+
+    function renderDeps(deps) {
+      const list = document.getElementById('depsList');
+      list.innerHTML = deps.map(d => {
+        const icon = d.installed ? '✓' : (d.required ? '!' : '?');
+        const iconClass = d.installed ? 'ok' : '';
+        const statusText = d.installed
+          ? `<span class="dep-status ok">Установлено${d.version ? ' · ' + esc(d.version) : ''}</span>`
+          : `<span class="dep-status missing">Не установлено${d.required ? ' (обязательно)' : ' (опционально)'}</span>` +
+            (d.hint ? `<div class="dep-hint">или вручную: <code>${esc(d.hint)}</code></div>` : '');
+
+        let action = '';
+        const pkg = d.pkg || d.brew_pkg;
+        if (!d.installed) {
+          if (pkg) {
+            action = `<button class="tg-btn" id="dep-btn-${esc(d.id)}" style="background:var(--fg);color:var(--bg)" onclick="installDep('${esc(pkg)}', '${esc(d.id)}')">Установить</button>`;
+          } else if (d.manual_url) {
+            action = `<button class="tg-btn" style="background:var(--fg);color:var(--bg)" onclick="openExternal('${esc(d.manual_url)}')">Скачать</button>`;
+          }
+        } else if (d.id === 'yt-dlp') {
+          // yt-dlp gets stale fast — let the user refresh it in place
+          action = `<button class="tg-btn" style="background:var(--bg2);color:var(--fg)" onclick="updateYtdlp(this)">Обновить</button>`;
+        }
+
+        return `<div class="dep-item">
+          <div class="dep-icon ${iconClass}">${icon}</div>
+          <div class="dep-info">
+            <div class="dep-name">${esc(d.name)}</div>
+            <div class="dep-desc">${esc(d.description)}</div>
+            ${statusText}
+          </div>
+          <div class="dep-action">${action}</div>
+        </div>`;
+      }).join('');
+    }
+
+    function openBrewSite() {
+      openExternal('https://brew.sh');
+    }
+
+    async function installDep(pkg, depId) {
+      const btn = document.getElementById(`dep-btn-${depId}`);
+      if (btn) { btn.disabled = true; btn.textContent = 'Установка...'; }
+      try {
+        const res = await fetch('/api/deps/install', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pkg }),
+        });
+        const data = await res.json();
+        if (data.error) {
+          if (btn) { btn.disabled = false; btn.textContent = 'Установить'; }
+          alert('Ошибка: ' + data.error);
+          return;
+        }
+        pollDepInstall(data.job_id, depId);
+      } catch (err) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Установить'; }
+        alert('Ошибка: ' + err.message);
+      }
+    }
+
+    function pollDepInstall(jobId, depId) {
+      const btn = document.getElementById(`dep-btn-${depId}`);
+      const iv = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/deps/install/status/${jobId}`);
+          const data = await res.json();
+          if (data.status === 'done') {
+            clearInterval(iv);
+            if (btn) { btn.textContent = '✓ Готово'; btn.style.background = 'var(--success)'; }
+            setTimeout(checkDepsAndContinue, 500);
+          } else if (data.status === 'error') {
+            clearInterval(iv);
+            if (btn) { btn.disabled = false; btn.textContent = 'Установить'; }
+            alert('Не удалось установить: ' + (data.error || 'неизвестная ошибка'));
+          }
+        } catch {}
+      }, 1500);
+    }
+
+    function skipOnboarding() {
+      document.getElementById('onboarding').style.display = 'none';
+      localStorage.setItem('busy-onboarding-done', '1');
+    }
+
+    async function showOnboardingIfNeeded() {
+      try {
+        const res = await fetch('/api/deps/check');
+        const data = await res.json();
+        const doneOnce = localStorage.getItem('busy-onboarding-done');
+        if (!data.ready || !doneOnce) {
+          renderDeps(data.deps);
+          document.getElementById('onboarding').style.display = 'block';
+        }
+      } catch {}
+    }
+
+    // Run on load
+    loadPlatform();
+    showOnboardingIfNeeded();
+
+    // ---- Theme ----
+    function initTheme() {
+      const saved = localStorage.getItem('busy-theme');
+      if (saved) {
+        document.documentElement.setAttribute('data-theme', saved);
+      } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    }
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('busy-theme', next);
+    }
+    initTheme();
+
+    // ---- Tabs ----
+    function switchTab(btn) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      if (btn.dataset.tab === 'history') loadHistory();
+      if (btn.dataset.tab === 'telegram') checkTdlStatus();
+    }
+
+    // ---- Telegram ----
+    let tgChats = [];
+    let tgSelectedChatId = null;
+    let tgSelectedChatName = null;
+    let tgLoginPollIv = null;
+    let tgCurrentJobId = null;
+
+    async function checkTdlStatus() {
+      const dot = document.getElementById('tgDot');
+      const label = document.getElementById('tgStatusLabel');
+      const loginBtn = document.getElementById('tgLoginBtn');
+      const logoutBtn = document.getElementById('tgLogoutBtn');
+      const notInstalled = document.getElementById('tgNotInstalled');
+      const chatListView = document.getElementById('tgChatListView');
+      const chatDetail = document.getElementById('tgChatDetail');
+
+      label.textContent = 'Проверка...';
+      loginBtn.style.display = 'none';
+      loginBtn.disabled = false;
+      loginBtn.textContent = 'Войти через QR';
+      logoutBtn.style.display = 'none';
+      notInstalled.style.display = 'none';
+      chatListView.style.display = 'none';
+      chatDetail.style.display = 'none';
+      document.getElementById('tgQrBlock').style.display = 'none';
+      if (tgLoginPollIv) { clearInterval(tgLoginPollIv); tgLoginPollIv = null; }
+
+      try {
+        const res = await fetch('/api/tdl/status');
+        const data = await res.json();
+
+        if (!data.installed) {
+          dot.className = 'tg-status-dot';
+          label.textContent = 'TDL не установлен';
+          notInstalled.style.display = 'block';
+          return;
+        }
+
+        if (data.logged_in) {
+          dot.className = 'tg-status-dot online';
+          label.textContent = 'Подключён';
+          logoutBtn.style.display = '';
+          chatListView.style.display = '';
+          loadTgChats();
+        } else {
+          dot.className = 'tg-status-dot';
+          label.textContent = 'Не подключён';
+          loginBtn.style.display = '';
+        }
+      } catch {
+        dot.className = 'tg-status-dot';
+        label.textContent = 'Ошибка проверки';
+      }
+    }
+
+    async function tgLogin() {
+      const loginBtn = document.getElementById('tgLoginBtn');
+      const qrBlock = document.getElementById('tgQrBlock');
+      loginBtn.disabled = true;
+      loginBtn.textContent = 'Подключение...';
+
+      try {
+        const res = await fetch('/api/tdl/login', { method: 'POST' });
+        const data = await res.json();
+        if (data.error) {
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'Войти через QR';
+          alert('Ошибка входа: ' + data.error);
+          return;
+        }
+        if (data.qr_text) {
+          document.getElementById('tgQrPre').textContent = data.qr_text;
+          qrBlock.style.display = '';
+          loginBtn.style.display = 'none';
+          tgLoginPollIv = setInterval(pollTgLogin, 2000);
+        }
+      } catch (err) {
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Войти через QR';
+        alert('Ошибка входа: ' + err.message);
+      }
+    }
+
+    async function pollTgLogin() {
+      try {
+        const res = await fetch('/api/tdl/login/poll');
+        const data = await res.json();
+        if (data.status === 'success') {
+          clearInterval(tgLoginPollIv);
+          document.getElementById('tgQrBlock').style.display = 'none';
+          checkTdlStatus();
+        } else if (data.status === 'error' || data.status === 'no_session') {
+          clearInterval(tgLoginPollIv);
+          document.getElementById('tgQrBlock').style.display = 'none';
+          const loginBtn = document.getElementById('tgLoginBtn');
+          loginBtn.style.display = '';
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'Войти через QR';
+          if (data.status === 'error') alert('Ошибка входа. Попробуйте снова.');
+        }
+      } catch {}
+    }
+
+    async function tgLogout() {
+      if (!confirm('Отключить аккаунт Telegram?')) return;
+      await fetch('/api/tdl/logout', { method: 'POST' });
+      checkTdlStatus();
+    }
+
+    async function loadTgChats() {
+      const list = document.getElementById('tgChatList');
+      list.innerHTML = '<div class="tg-msg"><span class="spin"></span> Загрузка чатов...</div>';
+      try {
+        const res = await fetch('/api/tdl/chats');
+        if (res.status === 401) { checkTdlStatus(); return; }
+        const data = await res.json();
+        if (data.error) {
+          list.innerHTML = `<div class="tg-msg">${esc(data.error)}</div>`;
+          tgChats = [];
+          return;
+        }
+        tgChats = Array.isArray(data) ? data : [];
+        renderTgChats();
+      } catch {
+        list.innerHTML = '<div class="tg-msg">Не удалось загрузить чаты</div>';
+      }
+    }
+
+    function renderTgChats() {
+      const list = document.getElementById('tgChatList');
+      const query = (document.getElementById('tgChatSearch').value || '').toLowerCase();
+      const filtered = query
+        ? tgChats.filter(c => ((c.visible_name || c.username || '') + '').toLowerCase().includes(query))
+        : tgChats;
+
+      if (!filtered.length) {
+        list.innerHTML = '<div class="tg-msg">Чаты не найдены</div>';
+        return;
+      }
+
+      const typeIcons = { channel: '#', group: '@', user: '~', chat: '~' };
+
+      list.innerHTML = filtered.map((c, i) => {
+        const name = c.visible_name || c.username || String(c.id);
+        const type = c.type || '';
+        const icon = typeIcons[type] || '?';
+        const username = c.username ? '@' + c.username : '';
+        return `<div class="tg-chat" onclick="openTgChat(${i})">
+          <div class="tg-chat-icon">${icon}</div>
+          <div class="tg-chat-info">
+            <div class="tg-chat-name">${esc(name)}</div>
+            <div class="tg-chat-meta">${esc(type)}${username ? ' &middot; ' + esc(username) : ''}</div>
+          </div>
+          <div style="flex-shrink:0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" width="18" height="18"><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function filterTgChats() { renderTgChats(); }
+
+    function openTgChat(idx) {
+      const query = (document.getElementById('tgChatSearch').value || '').toLowerCase();
+      const filtered = query
+        ? tgChats.filter(c => ((c.visible_name || c.username || '') + '').toLowerCase().includes(query))
+        : tgChats;
+      const chat = filtered[idx];
+      if (!chat) return;
+
+      tgSelectedChatId = String(chat.id || chat.username || '');
+      tgSelectedChatName = chat.visible_name || chat.username || String(chat.id);
+      document.getElementById('tgSelectedChatName').textContent = tgSelectedChatName;
+      document.getElementById('tgChatListView').style.display = 'none';
+      document.getElementById('tgChatDetail').style.display = '';
+      document.getElementById('tgProgress').style.display = 'none';
+      document.getElementById('tgDone').style.display = 'none';
+    }
+
+    function tgBackToList() {
+      document.getElementById('tgChatDetail').style.display = 'none';
+      document.getElementById('tgChatListView').style.display = '';
+      tgSelectedChatId = null;
+    }
+
+    async function tgStartJob(body) {
+      body.chat_name = tgSelectedChatName || '';
+      const progress = document.getElementById('tgProgress');
+      const done = document.getElementById('tgDone');
+      progress.style.display = '';
+      done.style.display = 'none';
+      document.getElementById('tgProgressText').textContent = 'Запуск...';
+      document.getElementById('tgProgressBar').style.width = '0%';
+      tgCurrentJobId = null;
+
+      try {
+        const res = await fetch('/api/tdl/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (data.error) {
+          progress.style.display = 'none';
+          done.style.display = '';
+          done.innerHTML = `<span style="color:var(--error)">${esc(data.error)}</span>`;
+          return;
+        }
+        tgCurrentJobId = data.job_id;
+        pollTgJob(data.job_id);
+      } catch (err) {
+        progress.style.display = 'none';
+        done.style.display = '';
+        done.innerHTML = `<span style="color:var(--error)">${esc(err.message)}</span>`;
+      }
+    }
+
+    async function tgStopJob() {
+      if (!tgCurrentJobId) return;
+      try {
+        await fetch(`/api/tdl/stop/${tgCurrentJobId}`, { method: 'POST' });
+      } catch {}
+    }
+
+    function pollTgJob(jobId) {
+      const iv = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/tdl/status/${jobId}`);
+          const data = await res.json();
+          if (data.status === 'done') {
+            clearInterval(iv);
+            tgCurrentJobId = null;
+            document.getElementById('tgProgress').style.display = 'none';
+            const done = document.getElementById('tgDone');
+            done.style.display = '';
+            const revealBtn = data.output_path
+              ? `<br><button class="tg-btn" style="margin-top:10px;background:var(--bg2);color:var(--fg)" onclick="revealPath('${esc(data.output_path)}')">${revealLabel()}</button>`
+              : '';
+            done.innerHTML = `<span style="color:var(--success)">Загрузка завершена!</span>${data.filename ? '<br>' + esc(data.filename) : ''}${data.file_size ? ' (' + fmtSize(data.file_size) + ')' : ''}${revealBtn}`;
+            notify('Загрузка из Telegram завершена');
+          } else if (data.status === 'error' || data.status === 'stopped') {
+            clearInterval(iv);
+            tgCurrentJobId = null;
+            document.getElementById('tgProgress').style.display = 'none';
+            const done = document.getElementById('tgDone');
+            done.style.display = '';
+            const msg = data.status === 'stopped' ? 'Остановлено' : esc(data.error || 'Неизвестная ошибка');
+            const color = data.status === 'stopped' ? 'var(--muted)' : 'var(--error)';
+            done.innerHTML = `<span style="color:${color}">${msg}</span>`;
+          } else if (data.progress) {
+            document.getElementById('tgProgressText').textContent = data.progress;
+            const match = data.progress.match(/([\d.]+)%/);
+            if (match) document.getElementById('tgProgressBar').style.width = match[1] + '%';
+          }
+        } catch {
+          clearInterval(iv);
+          document.getElementById('tgProgress').style.display = 'none';
+        }
+      }, 1000);
+    }
+
+    // ---- Split audio into ~20-min parts ----
+    let splJobId = null;
+
+    function splPlural(n, one, few, many) {
+      const a = Math.abs(n) % 100, b = a % 10;
+      if (a > 10 && a < 20) return many;
+      if (b > 1 && b < 5) return few;
+      if (b === 1) return one;
+      return many;
+    }
+
+    function splFmtDuration(sec) {
+      sec = Math.round(sec || 0);
+      const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+      if (h) return `${h} ч ${m} мин`;
+      return `${m} мин ${s} сек`;
+    }
+
+    function splFilePicked(input) {
+      if (input.files && input.files[0]) splStart(input.files[0]);
+    }
+
+    function splReset() {
+      document.getElementById('splFileInput').value = '';
+      document.getElementById('splFileInfo').style.display = 'none';
+      document.getElementById('splDropLabel').style.display = '';
+      document.getElementById('splDrop').classList.remove('has-file');
+      document.getElementById('splResult').style.display = 'none';
+      document.getElementById('splProgress').style.display = 'none';
+    }
+
+    // Click drop zone to open file picker
+    document.getElementById('splDrop').addEventListener('click', function() {
+      if (!splJobId) document.getElementById('splFileInput').click();
+    });
+
+    async function splStart(file) {
+      // Show file info
+      document.getElementById('splDropLabel').style.display = 'none';
+      document.getElementById('splFileInfo').style.display = '';
+      document.getElementById('splFileName').textContent = file.name;
+      document.getElementById('splFileSize').textContent = fmtSize(file.size);
+      document.getElementById('splDrop').classList.add('has-file');
+
+      const progress = document.getElementById('splProgress');
+      const result = document.getElementById('splResult');
+      result.style.display = 'none';
+      progress.style.display = '';
+      document.getElementById('splProgressText').textContent = 'Определяю длительность...';
+      document.getElementById('splProgressBar').style.width = '5%';
+
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const res = await fetch('/api/split', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.error) { splFail(data.error); return; }
+        splJobId = data.job_id;
+        pollSplit(data.job_id);
+      } catch (err) {
+        splFail(err.message);
+      }
+    }
+
+    function splFail(msg) {
+      splJobId = null;
+      document.getElementById('splProgress').style.display = 'none';
+      const r = document.getElementById('splResult');
+      r.style.display = '';
+      r.querySelector('#splResultText').innerHTML =
+        `<div style="text-align:center"><span style="color:var(--error)">${esc(msg || 'Ошибка')}</span></div>`;
+    }
+
+    function pollSplit(jobId) {
+      const iv = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/split/status/${jobId}`);
+          const data = await res.json();
+          if (data.status === 'done') {
+            clearInterval(iv);
+            splJobId = null;
+            document.getElementById('splProgress').style.display = 'none';
+            const r = document.getElementById('splResult');
+            r.style.display = '';
+            const rows = (data.files || []).map(f =>
+              `<div style="display:flex;justify-content:space-between;gap:10px;font-size:0.76rem;padding:5px 0;border-bottom:1px solid var(--bg2)">
+                 <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span>
+                 <span style="color:var(--muted);flex-shrink:0">${fmtSize(f.size)}</span>
+               </div>`
+            ).join('');
+            const reveal = data.output_path
+              ? `<button class="tg-btn" style="margin-top:12px;background:var(--bg2);color:var(--fg)" onclick="revealPath('${esc(data.output_path)}')">${revealLabel()}</button>`
+              : '';
+            r.querySelector('#splResultText').innerHTML =
+              `<div style="text-align:center;color:var(--success);font-size:0.9rem;margin-bottom:10px">
+                 Готово! ${data.parts} ${splPlural(data.parts, 'часть', 'части', 'частей')} · ${splFmtDuration(data.duration)}
+               </div>${rows}<div style="text-align:center">${reveal}</div>`;
+            notify(`Нарезано на ${data.parts} ${splPlural(data.parts, 'часть', 'части', 'частей')}`);
+          } else if (data.status === 'error' || data.status === 'stopped') {
+            clearInterval(iv);
+            splJobId = null;
+            document.getElementById('splProgress').style.display = 'none';
+            const r = document.getElementById('splResult');
+            r.style.display = '';
+            const msg = data.status === 'stopped' ? 'Остановлено' : esc(data.error || 'Ошибка');
+            const color = data.status === 'stopped' ? 'var(--muted)' : 'var(--error)';
+            r.querySelector('#splResultText').innerHTML = `<div style="text-align:center"><span style="color:${color}">${msg}</span></div>`;
+          } else {
+            const bar = document.getElementById('splProgressBar');
+            const pct = Math.max(data.pct || 0, parseFloat(bar.style.width) || 5);
+            bar.style.width = pct + '%';
+            const label = data.parts
+              ? `Нарезаю на ${data.parts} ${splPlural(data.parts, 'часть', 'части', 'частей')}...`
+              : 'Определяю длительность...';
+            document.getElementById('splProgressText').textContent = label;
+          }
+        } catch {
+          clearInterval(iv);
+          document.getElementById('splProgress').style.display = 'none';
+        }
+      }, 800);
+    }
+
+    async function stopSplit() {
+      if (!splJobId) return;
+      try { await fetch(`/api/split/stop/${splJobId}`, { method: 'POST' }); } catch {}
+    }
+
+    // ---- Format ----
+    function setFormat(btn) {
+      document.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFormat = btn.dataset.format;
+      document.getElementById('audioOpts').classList.toggle('show', currentFormat === 'audio');
+    }
+
+    // ---- Helpers ----
+    function parseUrls(text) {
+      return [...new Set(text.split(/[\s,]+/).map(u => u.trim()).filter(u => /^https?:\/\//i.test(u)))];
+    }
+    function fmtDur(s) {
+      if (!s) return '';
+      const m = Math.floor(s / 60);
+      const sec = Math.floor(s % 60);
+      return `${m}:${sec.toString().padStart(2, '0')}`;
+    }
+    function fmtSize(bytes) {
+      if (!bytes) return '';
+      if (bytes < 1024*1024) return (bytes/1024).toFixed(0) + ' KB';
+      return (bytes/(1024*1024)).toFixed(1) + ' MB';
+    }
+    function esc(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+    function friendlyError(err) {
+      if (!err) return 'Неизвестная ошибка';
+      if (err.includes('Unsupported URL')) return 'Эта ссылка не поддерживается';
+      if (err.includes('Video unavailable')) return 'Видео недоступно или скрыто';
+      if (err.includes('Private video')) return 'Это приватное видео';
+      if (needsYtdlpUpdate(err)) return 'Платформа изменила защиту — обновите yt-dlp';
+      if (err.includes('HTTP Error 404')) return 'Видео не найдено';
+      if (err.includes('timed out') || err.includes('Timed out')) return 'Превышено время ожидания';
+      if (err.includes('Rate limit')) return 'Слишком много запросов, подождите';
+      return err.length > 80 ? err.slice(0, 80) + '...' : err;
+    }
+
+    // Errors that usually mean yt-dlp is outdated and needs updating
+    function needsYtdlpUpdate(err) {
+      if (!err) return false;
+      return /HTTP Error 403|Forbidden|Sign in to confirm|Failed to extract|nsig|Requested format is not available|Precondition check failed|player response/i.test(err);
+    }
+
+    async function updateYtdlp(btn) {
+      const orig = btn ? btn.textContent : '';
+      if (btn) { btn.disabled = true; btn.textContent = 'Обновление...'; }
+      try {
+        const res = await fetch('/api/deps/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pkg: 'yt-dlp' }),
+        });
+        const data = await res.json();
+        if (data.error) {
+          if (btn) { btn.disabled = false; btn.textContent = orig; }
+          alert('Ошибка: ' + data.error);
+          return;
+        }
+        pollYtdlpUpdate(data.job_id, btn, orig);
+      } catch (err) {
+        if (btn) { btn.disabled = false; btn.textContent = orig; }
+        alert('Ошибка: ' + err.message);
+      }
+    }
+
+    function pollYtdlpUpdate(jobId, btn, orig) {
+      const iv = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/deps/install/status/${jobId}`);
+          const data = await res.json();
+          if (data.status === 'done') {
+            clearInterval(iv);
+            if (btn) {
+              btn.textContent = '✓ Обновлено' + (data.version ? ' (' + data.version + ')' : '');
+              btn.style.background = 'var(--success)';
+              btn.style.color = '#fff';
+            }
+          } else if (data.status === 'error') {
+            clearInterval(iv);
+            if (btn) { btn.disabled = false; btn.textContent = orig || 'Обновить yt-dlp'; }
+            alert('Не удалось обновить: ' + (data.error || 'неизвестная ошибка'));
+          }
+        } catch {}
+      }, 1500);
+    }
+
+    // ---- Keyboard ----
+    document.getElementById('urls').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); go(); }
+    });
+
+    // ---- Drag & Drop ----
+    let dragCounter = 0;
+    document.addEventListener('dragenter', e => {
+      e.preventDefault();
+      dragCounter++;
+      document.getElementById('dropOverlay').classList.add('visible');
+    });
+    document.addEventListener('dragleave', e => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter <= 0) {
+        dragCounter = 0;
+        document.getElementById('dropOverlay').classList.remove('visible');
+      }
+    });
+    document.addEventListener('dragover', e => e.preventDefault());
+    document.addEventListener('drop', e => {
+      e.preventDefault();
+      dragCounter = 0;
+      document.getElementById('dropOverlay').classList.remove('visible');
+      // If the Split tab is open and a file was dropped, cut it
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file && document.getElementById('tab-split').classList.contains('active')) {
+        splStart(file);
+        return;
+      }
+      const text = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text/uri-list') || '';
+      if (text) {
+        const ta = document.getElementById('urls');
+        ta.value = ta.value ? ta.value + '\n' + text : text;
+        ta.focus();
+      }
+    });
+
+    // ---- Fetch ----
+    async function go() {
+      const urls = parseUrls(document.getElementById('urls').value);
+      if (!urls.length) return;
+
+      const btn = document.getElementById('goBtn');
+      const container = document.getElementById('cards');
+      btn.disabled = true;
+      btn.textContent = 'Загрузка...';
+      container.innerHTML = '';
+      cardData = [];
+      document.getElementById('mascot').style.display = 'none';
+
+      for (let i = 0; i < urls.length; i++) {
+        const url = urls[i];
+        const idx = cardData.length;
+        cardData.push({ url, status: 'loading' });
+        renderCard(idx);
+
+        try {
+          const res = await fetch('/api/info', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url }),
+          });
+          const data = await res.json();
+          if (data.error) {
+            cardData[idx] = { ...cardData[idx], status: 'info-error', error: data.error };
+          } else {
+            cardData[idx] = {
+              ...cardData[idx],
+              status: 'ready',
+              title: data.title || '',
+              thumbnail: data.thumbnail || '',
+              duration: data.duration,
+              uploader: data.uploader || '',
+              formats: data.formats || [],
+              selectedFormatId: data.formats?.[0]?.id || null,
+            };
+          }
+        } catch (err) {
+          cardData[idx] = { ...cardData[idx], status: 'info-error', error: err.message };
+        }
+        renderCard(idx);
+      }
+
+      if (cardData.filter(c => c.status === 'ready').length > 1) {
+        renderDownloadAll();
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Загрузить';
+    }
+
+    // ---- Render ----
+    function renderCard(idx) {
+      const c = cardData[idx];
+      let el = document.getElementById(`card-${idx}`);
+      if (!el) {
+        el = document.createElement('div');
+        el.id = `card-${idx}`;
+        el.className = 'card';
+        document.getElementById('cards').appendChild(el);
+      }
+
+      if (c.status === 'loading') {
+        el.className = 'card';
+        el.innerHTML = `
+          <div class="card-thumb loading"></div>
+          <div class="card-body">
+            <div class="skeleton-line medium"></div>
+            <div class="skeleton-line short"></div>
+          </div>`;
+        return;
+      }
+
+      if (c.status === 'info-error') {
+        el.className = 'card card-error';
+        el.innerHTML = `
+          <div class="card-thumb">
+            <div class="card-error-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="card-title" style="color:var(--error)">Не удалось загрузить</div>
+            <div class="card-error-msg">${esc(friendlyError(c.error))}</div>
+            <div class="card-error-url">${esc(c.url)}</div>
+            ${needsYtdlpUpdate(c.error) ? `<div class="card-actions"><button class="card-dl-btn" style="background:var(--bg2);color:var(--fg)" onclick="updateYtdlp(this)">Обновить yt-dlp</button></div>` : ''}
+          </div>`;
+        return;
+      }
+
+      el.className = 'card';
+      const isAudio = currentFormat === 'audio';
+
+      let thumbHtml = c.thumbnail
+        ? `<img src="${esc(c.thumbnail)}" alt="">`
+        : `<div class="no-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></div>`;
+
+      let qualityChips = '';
+      if (!isAudio && c.formats && c.formats.length > 1) {
+        qualityChips = c.formats.map(f =>
+          `<button class="q-chip${f.id === c.selectedFormatId ? ' active' : ''}" onclick="pickFormat(${idx}, '${f.id}')">${f.label}</button>`
+        ).join('');
+      }
+
+      let actionHtml = '';
+      let progressHtml = '';
+
+      if (c.status === 'ready') {
+        actionHtml = `<button class="card-dl-btn" onclick="dlCard(${idx})">Скачать</button>${qualityChips}`;
+      } else if (c.status === 'downloading') {
+        const pct = c._progressPct || 0;
+        actionHtml = `<span class="card-status downloading"><span class="spin"></span> ${c._progressText || 'Скачивание...'}</span>`;
+        progressHtml = `<div class="progress-bar"><div class="progress-bar-fill" style="width:${pct}%"></div></div>`;
+      } else if (c.status === 'done') {
+        actionHtml = `<button class="card-dl-btn done" onclick="saveCard(${idx})">Сохранить</button>
+          <button class="card-dl-btn" style="background:var(--bg2);color:var(--fg)" onclick="revealCard(${idx})">${revealLabel()}</button>
+          <span class="card-status done">${esc(c.filename || '')} ${c.file_size ? '(' + fmtSize(c.file_size) + ')' : ''}</span>`;
+      } else if (c.status === 'error') {
+        const updBtn = needsYtdlpUpdate(c.error)
+          ? `<button class="card-dl-btn" style="background:var(--bg2);color:var(--fg)" onclick="updateYtdlp(this)">Обновить yt-dlp</button>`
+          : '';
+        actionHtml = `<button class="card-dl-btn" onclick="dlCard(${idx})">Повторить</button>${updBtn}
+          <span class="card-status error">${esc(friendlyError(c.error))}</span>`;
+      }
+
+      el.innerHTML = `
+        <div class="card-thumb">${thumbHtml}</div>
+        <div class="card-body">
+          <div class="card-title">${esc(c.title || 'Без названия')}</div>
+          <div class="card-meta">${esc(c.uploader)}${c.duration ? ' \u00b7 ' + fmtDur(c.duration) : ''}</div>
+          <div class="card-actions">${actionHtml}</div>
+          ${progressHtml}
+        </div>`;
+    }
+
+    function renderDownloadAll() {
+      const existing = document.getElementById('dl-all-bar');
+      if (existing) existing.remove();
+      const bar = document.createElement('div');
+      bar.id = 'dl-all-bar';
+      bar.className = 'dl-all-bar';
+      bar.innerHTML = `<button class="dl-all-btn" onclick="dlAll()">Скачать всё</button>`;
+      document.getElementById('cards').appendChild(bar);
+    }
+
+    function pickFormat(idx, formatId) {
+      cardData[idx].selectedFormatId = formatId;
+      renderCard(idx);
+    }
+
+    // ---- Download ----
+    async function dlCard(idx) {
+      const c = cardData[idx];
+      c.status = 'downloading';
+      c.error = null;
+      c._progressPct = 0;
+      c._progressText = 'Запуск...';
+      renderCard(idx);
+
+      try {
+        const body = {
+          url: c.url,
+          format: currentFormat,
+          format_id: c.selectedFormatId,
+          title: c.title || '',
+          duration: c.duration,
+          thumbnail: c.thumbnail,
+        };
+        if (currentFormat === 'audio') {
+          body.audio_format = document.getElementById('audioFormat').value;
+          body.audio_quality = document.getElementById('audioQuality').value;
+        }
+        const res = await fetch('/api/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (data.error) {
+          c.status = 'error';
+          c.error = data.error;
+          renderCard(idx);
+          return;
+        }
+        c.jobId = data.job_id;
+        pollCard(idx);
+      } catch (err) {
+        c.status = 'error';
+        c.error = err.message;
+        renderCard(idx);
+      }
+    }
+
+    function pollCard(idx) {
+      const c = cardData[idx];
+      const iv = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/status/${c.jobId}`);
+          const data = await res.json();
+          if (data.status === 'done') {
+            clearInterval(iv);
+            c.status = 'done';
+            c.filename = data.filename;
+            c.file_size = data.file_size;
+            c.output_path = data.output_path;
+            renderCard(idx);
+            saveCard(idx);
+            notify(`Скачано: ${c.title || c.filename}`);
+          } else if (data.status === 'error') {
+            clearInterval(iv);
+            c.status = 'error';
+            c.error = data.error;
+            renderCard(idx);
+          } else if (data.progress) {
+            // Parse progress like " 45.2% 2.5MiB/s 00:12"
+            const match = data.progress.match(/([\d.]+)%/);
+            if (match) c._progressPct = parseFloat(match[1]);
+            c._progressText = data.progress;
+            renderCard(idx);
+          }
+        } catch {
+          clearInterval(iv);
+          c.status = 'error';
+          c.error = 'Потеряно соединение с сервером';
+          renderCard(idx);
+        }
+      }, 800);
+    }
+
+    function saveCard(idx) {
+      const c = cardData[idx];
+      if (!c.jobId) return;
+      const a = document.createElement('a');
+      a.href = `/api/file/${c.jobId}`;
+      a.download = c.filename || '';
+      a.click();
+    }
+
+    function revealCard(idx) {
+      const c = cardData[idx];
+      if (c && c.output_path) revealPath(c.output_path);
+      else openFolder();
+    }
+
+    async function revealPath(path) {
+      if (!path) return;
+      try {
+        await fetch('/api/reveal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path }),
+        });
+      } catch {}
+    }
+
+    async function dlAll() {
+      const btn = document.querySelector('.dl-all-btn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Скачивание...'; }
+      for (let i = 0; i < cardData.length; i++) {
+        if (cardData[i].status === 'ready') await dlCard(i);
+      }
+      if (btn) { btn.disabled = false; btn.textContent = 'Скачать всё'; }
+    }
+
+    // ---- Notifications ----
+    function notify(msg) {
+      if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+        new Notification('Busy', { body: msg });
+      }
+    }
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    // ---- History ----
+    async function loadHistory() {
+      try {
+        const res = await fetch('/api/history');
+        historyData = await res.json();
+        renderHistory();
+      } catch {
+        document.getElementById('histList').innerHTML = '<div class="history-empty">Не удалось загрузить историю</div>';
+      }
+    }
+
+    function renderHistory() {
+      const container = document.getElementById('histList');
+      const query = (document.getElementById('histSearch').value || '').toLowerCase();
+      const filtered = query
+        ? historyData.filter(h => (h.title || '').toLowerCase().includes(query) || (h.filename || '').toLowerCase().includes(query))
+        : historyData;
+
+      if (!filtered.length) {
+        container.innerHTML = '<div class="history-empty">Загрузок пока нет</div>';
+        return;
+      }
+
+      container.innerHTML = filtered.map(h => {
+        const isAudio = (h.format || '').startsWith('audio');
+        const iconClass = isAudio ? 'hist-icon audio' : 'hist-icon';
+        const icon = isAudio
+          ? '<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21"/></svg>'
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="2"/><polygon points="10 8 16 12 10 16" fill="currentColor" stroke="none"/></svg>';
+        return `<div class="hist-card">
+          <div class="${iconClass}">${icon}</div>
+          <div class="hist-body">
+            <div class="hist-title">${esc(h.title || h.filename || 'Без названия')}</div>
+            <div class="hist-meta">${esc(h.created_at || '')} ${h.file_size ? '\u00b7 ' + fmtSize(h.file_size) : ''}</div>
+          </div>
+          <div class="hist-actions">
+            <button class="hist-btn" title="${revealLabel()}" onclick="openFile(${h.id})">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            </button>
+            <button class="hist-btn danger" title="Удалить из истории" onclick="deleteHistItem(${h.id})">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function filterHistory() { renderHistory(); }
+
+    async function deleteHistItem(id) {
+      await fetch(`/api/history/${id}`, { method: 'DELETE' });
+      historyData = historyData.filter(h => h.id !== id);
+      renderHistory();
+    }
+
+    async function clearHistory() {
+      if (!confirm('Очистить всю историю загрузок?')) return;
+      await fetch('/api/history/clear', { method: 'POST' });
+      historyData = [];
+      renderHistory();
+    }
+
+    async function openFile(id) {
+      await fetch(`/api/open-file/${id}`);
+    }
+
+    async function openFolder() {
+      await fetch('/api/open-folder');
+    }
+  </script>
+</body>
+</html>

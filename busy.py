@@ -127,6 +127,14 @@ def main():
     os.environ["PORT"] = str(port)
     url = f"http://127.0.0.1:{port}"
 
+    # Windows reserves random port ranges (Hyper-V), so 8899 is not guaranteed.
+    # Leave the port we actually took where anything else can find it.
+    try:
+        with open(os.path.join(plat.data_dir(), "port"), "w") as fh:
+            fh.write(str(port))
+    except OSError:
+        pass
+
     _start_server(port)
 
     if force_browser:

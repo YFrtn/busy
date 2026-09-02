@@ -6,6 +6,7 @@
 
 Всё работает локально на вашем компьютере: никаких серверов, регистрации и загрузки ваших файлов куда-либо.
 
+[![Build](https://github.com/YFrtn/busy/actions/workflows/build.yml/badge.svg)](https://github.com/YFrtn/busy/actions/workflows/build.yml)
 ![Python](https://img.shields.io/badge/python-3.9+-blue)
 ![Windows](https://img.shields.io/badge/Windows-10%2F11-0078d4)
 ![macOS](https://img.shields.io/badge/macOS-11+-black)
@@ -252,6 +253,10 @@ pyinstaller Busy.spec --noconfirm --clean
 ```
 
 Результат — `dist/Busy.app` (macOS) или `dist/Busy/Busy.exe` (Windows). Тот же спек используется в GitHub Actions: `.github/workflows/build.yml` собирает Windows-, Intel- и Apple Silicon-версии на каждый тег `v*`.
+
+### Как проверяется работоспособность
+
+Каждая сборка на GitHub Actions проходит проверку на настоящей Windows-машине: приложение запускается как `.exe`, само скачивает FFmpeg, скачивает и конвертирует файл в MP3, записывает его в историю и режет аудио — всё через собственный API ([`.github/scripts/e2e_windows.ps1`](.github/scripts/e2e_windows.ps1)). Если что-то из этого сломается, релиз не соберётся.
 
 ### Как устроено
 

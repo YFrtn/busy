@@ -230,6 +230,13 @@ else:
 def _decorate(kwargs: dict) -> dict:
     if IS_WIN:
         kwargs.setdefault("creationflags", _CREATIONFLAGS)
+        # A windowed build has no console, so the inherited standard handles
+        # are invalid and a child process dies with "The handle is invalid"
+        # unless every stream is given explicitly.
+        kwargs.setdefault("stdin", subprocess.DEVNULL)
+        if "stdout" not in kwargs and not kwargs.get("capture_output"):
+            kwargs.setdefault("stdout", subprocess.DEVNULL)
+            kwargs.setdefault("stderr", subprocess.DEVNULL)
     if kwargs.get("text") or kwargs.get("universal_newlines"):
         # Windows consoles are rarely UTF-8; decoding with the locale codepage
         # raises UnicodeDecodeError on yt-dlp/ffmpeg output.

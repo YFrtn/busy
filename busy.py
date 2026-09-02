@@ -20,6 +20,12 @@ import webbrowser
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# A windowed build (pythonw.exe / --noconsole) has no stdout at all; anything
+# that prints would then blow up deep inside a library.
+for _stream in ("stdout", "stderr"):
+    if getattr(sys, _stream, None) is None:
+        setattr(sys, _stream, open(os.devnull, "w"))
+
 import platform_utils as plat  # noqa: E402  (must run before anything spawns tools)
 
 

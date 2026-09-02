@@ -5,6 +5,8 @@
 """
 import sys
 
+from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_submodules
+
 IS_MAC = sys.platform == "darwin"
 IS_WIN = sys.platform == "win32"
 
@@ -12,13 +14,27 @@ datas = [
     ("templates", "templates"),
     ("static", "static"),
 ]
+binaries = []
+
+# pywebview loads its platform backend dynamically, so PyInstaller cannot see
+# the imports; pull the whole package in explicitly.
+datas += collect_data_files("webview")
+hiddenimports = collect_submodules("webview")
+
+if IS_WIN:
+    # The Windows backend runs through .NET (pythonnet + the WebView2 loader).
+    for pkg in ("clr_loader", "pythonnet"):
+        pkg_datas, pkg_binaries, pkg_hidden = collect_all(pkg)
+        datas += pkg_datas
+        binaries += pkg_binaries
+        hiddenimports += pkg_hidden
 
 a = Analysis(
     ["busy.py"],
     pathex=[],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
-    hiddenimports=[
+    hiddenimports=hiddenimports + [
         "yt_dlp",
         "app",
         "platform_utils",

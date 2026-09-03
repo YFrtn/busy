@@ -25,7 +25,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 for _name in ("stdout", "stderr"):
     _stream = getattr(sys, _name, None)
     if _stream is None:
-        setattr(sys, _name, open(os.devnull, "w"))
+        # utf-8 explicitly: the default here is the system codepage (cp1251 on
+        # a Russian Windows), and printing "→" would raise UnicodeEncodeError.
+        setattr(sys, _name, open(os.devnull, "w", encoding="utf-8", errors="replace"))
         continue
     # A Windows console defaults to a legacy codepage (cp1252 / cp866), where
     # printing "→" or Cyrillic raises UnicodeEncodeError and kills the app.
@@ -53,6 +55,72 @@ if len(sys.argv) > 1 and sys.argv[1] == "--ytdlp":
 
 APP_TITLE = "Busy"
 WINDOW_W, WINDOW_H = 520, 680
+
+
+def _unblock_bundled_files():
+    """Strip the "downloaded from the internet" mark from bundled libraries.
+
+    Windows tags every file extracted from a downloaded .zip with a
+    Zone.Identifier stream, and .NET then refuses to load the assemblies that
+    the native window needs (pythonnet / WebView2) — the app dies with
+    "Failed to resolve Python.Runtime.Loader.Initialize". Removing the stream
+    is exactly what the "Unblock" checkbox in file properties does.
+    """
+    base = getattr(sys, "_MEIPASS", None)
+    if not (plat.IS_WIN and base):
+        return
+    for root, _dirs, files in os.walk(base):
+        for name in files:
+            if name.lower().endswith((".dll", ".exe")):
+                try:
+                    os.remove(os.path.join(root, name) + ":Zone.Identifier")
+                except OSError:
+                    pass  # no mark on this file — the normal case
+
+
+def _app_window_browsers():
+    """Chromium browsers that can show a page as a standalone window."""
+    if plat.IS_WIN:
+        candidates = []
+        for env in ("PROGRAMFILES(X86)", "PROGRAMFILES", "LOCALAPPDATA"):
+            root = os.environ.get(env)
+            if not root:
+                continue
+            candidates.append(os.path.join(root, "Microsoft", "Edge", "Application", "msedge.exe"))
+            candidates.append(os.path.join(root, "Google", "Chrome", "Application", "chrome.exe"))
+        return [p for p in candidates if os.path.isfile(p)]
+    if plat.IS_MAC:
+        return [p for p in (
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+        ) if os.path.isfile(p)]
+    return [p for p in (plat.which("google-chrome"), plat.which("chromium"),
+                        plat.which("microsoft-edge")) if p]
+
+
+def _run_app_window(url: str) -> bool:
+    """Show the app in a chromeless browser window (no toolbars, own icon).
+
+    The fallback when the native webview cannot start: on Windows Edge is
+    always present, so the user still gets something that looks like an app
+    rather than a browser tab.
+    """
+    profile = os.path.join(plat.data_dir(), "window-profile")
+    for exe in _app_window_browsers():
+        try:
+            proc = plat.popen([
+                exe,
+                f"--app={url}",
+                f"--user-data-dir={profile}",
+                f"--window-size={WINDOW_W},{WINDOW_H}",
+                "--no-first-run",
+                "--no-default-browser-check",
+            ])
+        except OSError:
+            continue
+        proc.wait()  # the app lives as long as its window
+        return True
+    return False
 
 
 def _free_port(preferred: int = 8899) -> int:
@@ -117,7 +185,7 @@ def _wait_for_server(url: str, timeout: float = 30.0) -> bool:
 
 
 def _run_browser(url: str):
-    print(f"\n  {APP_TITLE} → {url}")
+    print(f"\n  {APP_TITLE} -> {url}")
     print(f"  Загрузки: {os.environ.get('BUSY_DOWNLOAD_DIR') or plat.default_download_dir()}")
     print("  Закройте это окно, чтобы выйти.\n")
     webbrowser.open(url)
@@ -150,11 +218,15 @@ def main():
         _run_browser(url)
         return
 
+    _unblock_bundled_files()
+
     try:
         import webview  # noqa: PLC0415
-    except ImportError:
+    except Exception as exc:  # ImportError, or .NET failing to load on Windows
+        print(f"  Нативное окно недоступно ({exc}).")
         _wait_for_server(url)
-        _run_browser(url)
+        if not _run_app_window(url):
+            _run_browser(url)
         return
 
     window = webview.create_window(
@@ -177,8 +249,9 @@ def main():
         webview.start(private_mode=False)
     except Exception as exc:
         # No WebView2 runtime on Windows, no WebKitGTK on Linux, ...
-        print(f"  Нативное окно недоступно ({exc}). Открываю в браузере.")
-        _run_browser(url)
+        print(f"  Нативное окно недоступно ({exc}).")
+        if not _run_app_window(url):
+            _run_browser(url)
 
 
 if __name__ == "__main__":

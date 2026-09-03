@@ -28,6 +28,8 @@ jobs:
         run: ./dist/Busy/Busy.exe --ytdlp --version
       - name: Проверка на живом приложении (скачивание, ffmpeg, история, нарезка)
         run: ./.github/scripts/e2e_windows.ps1
+      - name: Проверка окна с меткой «скачано из интернета»
+        run: ./.github/scripts/gui_windows.ps1
       - name: Package
         run: Compress-Archive -Path dist/Busy/* -DestinationPath Busy-windows-x64.zip
       - uses: actions/upload-artifact@v4

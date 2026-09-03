@@ -57,6 +57,24 @@ APP_TITLE = "Busy"
 WINDOW_W, WINDOW_H = 520, 680
 
 
+def _log_startup_issue(what: str, exc: BaseException):
+    """Record why the native window was skipped.
+
+    A packaged app has nowhere to print to, so the reason goes into a log file
+    the user can send when asking for help.
+    """
+    message = f"Нативное окно недоступно ({what}): {exc!r}"
+    print("  " + message)
+    try:
+        import traceback  # noqa: PLC0415
+
+        with open(os.path.join(plat.data_dir(), "busy.log"), "a", encoding="utf-8") as fh:
+            fh.write(f"\n--- {time.strftime('%Y-%m-%d %H:%M:%S')} ---\n{message}\n")
+            fh.write("".join(traceback.format_exception(type(exc), exc, exc.__traceback__)))
+    except OSError:
+        pass
+
+
 def _unblock_bundled_files():
     """Strip the "downloaded from the internet" mark from bundled libraries.
 
@@ -221,9 +239,14 @@ def main():
     _unblock_bundled_files()
 
     try:
+        if os.environ.get("BUSY_NO_WEBVIEW") == "1":
+            raise RuntimeError("отключено переменной BUSY_NO_WEBVIEW")
         import webview  # noqa: PLC0415
-    except Exception as exc:  # ImportError, or .NET failing to load on Windows
-        print(f"  Нативное окно недоступно ({exc}).")
+    except Exception as exc:
+        # On Windows the native window goes through .NET, which fails on some
+        # machines ("Failed to resolve Python.Runtime.Loader.Initialize").
+        # That must never stop the app: fall back to a separate app window.
+        _log_startup_issue("не удалось загрузить нативное окно", exc)
         _wait_for_server(url)
         if not _run_app_window(url):
             _run_browser(url)
@@ -249,7 +272,7 @@ def main():
         webview.start(private_mode=False)
     except Exception as exc:
         # No WebView2 runtime on Windows, no WebKitGTK on Linux, ...
-        print(f"  Нативное окно недоступно ({exc}).")
+        _log_startup_issue("нативное окно не запустилось", exc)
         if not _run_app_window(url):
             _run_browser(url)
 

@@ -55,3 +55,39 @@ try {
 } finally {
     Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
 }
+
+# ---------------------------------------------------------------------------
+# Запасной путь. На части машин .NET не грузится ("Failed to resolve
+# Python.Runtime.Loader.Initialize") — приложение обязано не падать, а
+# открыться отдельным окном Edge.
+# ---------------------------------------------------------------------------
+Write-Host "`n=== Запасной путь: нативное окно недоступно ==="
+Remove-Item $portFile -ErrorAction SilentlyContinue
+$env:BUSY_NO_WEBVIEW = "1"
+$proc = Start-Process $exe -PassThru -RedirectStandardOutput fb-out.txt -RedirectStandardError fb-err.txt
+
+try {
+    $ok = $false
+    foreach ($i in 1..30) {
+        Start-Sleep -Seconds 2
+        if ($proc.HasExited) { break }
+        if (-not (Test-Path $portFile)) { continue }
+        $port = (Get-Content $portFile -Raw).Trim()
+        try {
+            $r = Invoke-WebRequest "http://127.0.0.1:$port/" -UseBasicParsing -TimeoutSec 5
+            if ($r.StatusCode -eq 200) { $ok = $true; break }
+        } catch { }
+    }
+    if (-not $ok) {
+        Write-Host "--- вывод приложения ---"
+        Get-Content fb-out.txt, fb-err.txt -ErrorAction SilentlyContinue
+        if ($proc.HasExited) { throw "Приложение упало вместо запасного окна (код $($proc.ExitCode))" }
+        throw "Запасное окно не подняло интерфейс"
+    }
+    $edge = Get-Process msedge, chrome -ErrorAction SilentlyContinue
+    if (-not $edge) { throw "Окно Edge/Chrome не открылось" }
+    Write-Host "  OK: приложение открылось отдельным окном браузера и продолжает работать"
+} finally {
+    Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+    Get-Process msedge, chrome -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+}

@@ -953,8 +953,15 @@
       </div>
 
       <div id="tgNotInstalled" class="tg-msg" style="display:none">
-        <strong>TDL не установлен</strong><br><br>
-        Установите: <code id="tdlInstallHint" style="background:var(--bg2);padding:4px 8px;border-radius:6px">brew install telegram-downloader</code>
+        <strong>TDL не установлен</strong><br>
+        <span style="font-size:0.72rem;color:var(--muted)">Нужен, чтобы скачивать из Telegram. Без него остальные вкладки работают.</span>
+        <div id="tdlInstallBox" style="margin-top:14px">
+          <button class="tg-btn" id="tdlInstallBtn" style="background:var(--fg);color:var(--bg)" onclick="installTdl()">Установить</button>
+          <div id="tdlInstallProgress" style="margin-top:10px;font-size:0.7rem;color:var(--muted)"></div>
+        </div>
+        <div id="tdlManual" style="margin-top:14px;font-size:0.7rem;color:var(--muted)">
+          Или вручную: <code id="tdlInstallHint" style="background:var(--bg2);padding:4px 8px;border-radius:6px">brew install telegram-downloader</code>
+        </div>
       </div>
 
       <!-- Chat list view -->
@@ -1068,9 +1075,12 @@
       try {
         const cfg = await (await fetch('/api/config')).json();
         if (cfg.platform) PLATFORM = cfg.platform;
-        if (cfg.tdl_hint) {
-          const el = document.getElementById('tdlInstallHint');
-          if (el) el.textContent = cfg.tdl_hint;
+        const hintEl = document.getElementById('tdlInstallHint');
+        const manualEl = document.getElementById('tdlManual');
+        if (cfg.tdl_hint && hintEl) {
+          hintEl.textContent = cfg.tdl_hint;
+        } else if (manualEl) {
+          manualEl.style.display = 'none';   // нечего показать — не мозолим глаза
         }
         document.querySelectorAll('[data-reveal-label]').forEach(el => {
           el.textContent = revealLabel();
@@ -1289,6 +1299,50 @@
       } catch {
         dot.className = 'tg-status-dot';
         label.textContent = 'Ошибка проверки';
+      }
+    }
+
+    // Установка tdl прямо со вкладки Telegram: пользователь попадает сюда, а не
+    // на экран зависимостей, и без кнопки здесь ему некуда нажать.
+    async function installTdl() {
+      const btn = document.getElementById('tdlInstallBtn');
+      const progress = document.getElementById('tdlInstallProgress');
+      const pkg = (PLATFORM.os === 'mac') ? 'telegram-downloader' : 'tdl';
+
+      btn.disabled = true;
+      btn.textContent = 'Установка...';
+      progress.textContent = 'Начинаю...';
+
+      try {
+        const res = await fetch('/api/deps/install', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pkg }),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        const iv = setInterval(async () => {
+          try {
+            const st = await (await fetch(`/api/deps/install/status/${data.job_id}`)).json();
+            if (st.output) progress.textContent = st.output;
+            if (st.status === 'done') {
+              clearInterval(iv);
+              progress.textContent = 'Готово';
+              btn.textContent = '✓ Установлено';
+              checkTdlStatus();
+            } else if (st.status === 'error') {
+              clearInterval(iv);
+              btn.disabled = false;
+              btn.textContent = 'Повторить';
+              progress.textContent = st.error || 'Не удалось установить';
+            }
+          } catch {}
+        }, 1200);
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Повторить';
+        progress.textContent = err.message;
       }
     }
 

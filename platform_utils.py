@@ -418,7 +418,8 @@ def install_hint(dep_id: str) -> str:
             "ffmpeg": "winget install Gyan.FFmpeg",
             "yt-dlp": "winget install yt-dlp.yt-dlp",
             # tdl is in no package manager: the app fetches the release zip.
-            "tdl": "кнопка «Установить» рядом — Busy скачает tdl сам",
+            # The manual route is the release archive, not a package command.
+            "tdl": r"tdl.exe из tdl_Windows_64bit.zip → %LOCALAPPDATA%\Busy\bin",
         }.get(dep_id, "")
     mgr = package_manager() or "apt-get"
     verb = {"apt-get": "sudo apt-get install", "dnf": "sudo dnf install",

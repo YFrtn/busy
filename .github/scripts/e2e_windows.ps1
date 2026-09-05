@@ -79,6 +79,28 @@ try {
     elseif (-not (Test-Path (Join-Path $binDir "ffmpeg.exe"))) { Fail "ffmpeg.exe не появился в $binDir" }
     else { Pass "FFmpeg скачан в $binDir без прав администратора" }
 
+    # ---------------------------------------------------------------- tdl
+    Step "Автоустановка tdl (его нет ни в winget, ни в scoop)"
+    Remove-Item (Join-Path $binDir "tdl.exe") -ErrorAction SilentlyContinue
+    $job = Invoke-RestMethod "$base/api/deps/install" -Method Post -ContentType "application/json" `
+        -Body (@{ pkg = "tdl" } | ConvertTo-Json)
+    $status = $null
+    foreach ($i in 1..90) {
+        Start-Sleep -Seconds 2
+        $status = Invoke-RestMethod "$base/api/deps/install/status/$($job.job_id)"
+        if ($status.status -ne "installing") { break }
+    }
+    $tdlExe = Join-Path $binDir "tdl.exe"
+    if ($status.status -ne "done") { Fail "установка tdl: $($status.error)" }
+    elseif (-not (Test-Path $tdlExe)) { Fail "tdl.exe не появился в $binDir" }
+    else {
+        $ver = (& $tdlExe version 2>&1 | Select-Object -First 1)
+        Pass "tdl скачан и запускается: $ver"
+        $tg = Invoke-RestMethod "$base/api/tdl/status"
+        if (-not $tg.installed) { Fail "приложение не увидело установленный tdl" }
+        else { Pass "вкладка Telegram видит tdl" }
+    }
+
     # ---------------------------------------------------------------- скачивание
     Step "Скачивание файла и конвертация в MP3"
     $srcUrl = "https://raw.githubusercontent.com/$env:GITHUB_REPOSITORY/$env:GITHUB_SHA/.github/testdata/tone.mp3"

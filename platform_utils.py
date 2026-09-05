@@ -338,7 +338,7 @@ def package_manager():
     if IS_MAC:
         return "brew" if which("brew") else None
     if IS_WIN:
-        # ffmpeg is downloaded directly; winget is a bonus for tdl.
+        # ffmpeg and tdl are downloaded directly; winget only helps yt-dlp.
         return "winget" if which("winget") else None
     for mgr in ("apt-get", "dnf", "pacman"):
         if which(mgr):
@@ -390,8 +390,8 @@ def dep_specs(ytdlp_version=None):
     tdl_pkg = None
     if IS_MAC and mgr == "brew":
         tdl_pkg = "telegram-downloader"
-    elif IS_WIN and mgr == "winget":
-        tdl_pkg = "tdl"
+    elif IS_WIN:
+        tdl_pkg = "tdl"  # Busy downloads it itself — no package manager has it
     deps.append({
         "id": "tdl",
         "name": "TDL (Telegram Downloader)",
@@ -417,7 +417,8 @@ def install_hint(dep_id: str) -> str:
         return {
             "ffmpeg": "winget install Gyan.FFmpeg",
             "yt-dlp": "winget install yt-dlp.yt-dlp",
-            "tdl": "winget install tdl",
+            # tdl is in no package manager: the app fetches the release zip.
+            "tdl": "кнопка «Установить» рядом — Busy скачает tdl сам",
         }.get(dep_id, "")
     mgr = package_manager() or "apt-get"
     verb = {"apt-get": "sudo apt-get install", "dnf": "sudo dnf install",
@@ -431,8 +432,10 @@ def install_commands(pkg: str):
     if IS_MAC and mgr == "brew":
         return [["brew", "install", pkg]]
     if IS_WIN and mgr == "winget":
-        ids = {"ffmpeg": "Gyan.FFmpeg", "yt-dlp": "yt-dlp.yt-dlp", "tdl": "iyear.tdl"}
-        wid = ids.get(pkg, pkg)
+        ids = {"ffmpeg": "Gyan.FFmpeg", "yt-dlp": "yt-dlp.yt-dlp"}
+        wid = ids.get(pkg)
+        if not wid:
+            return None  # not in winget (tdl) — handled by a direct download
         return [["winget", "install", "--id", wid, "-e", "--accept-package-agreements",
                  "--accept-source-agreements"]]
     if IS_LINUX:
@@ -486,6 +489,53 @@ def download_ffmpeg_windows(progress=None) -> str:
     exe = os.path.join(target, "ffmpeg.exe")
     if not os.path.exists(exe):
         raise RuntimeError("FFmpeg не найден в архиве")
+    ensure_path()
+    return exe
+
+
+TDL_WIN_URL = "https://github.com/iyear/tdl/releases/latest/download/tdl_Windows_64bit.zip"
+
+
+def download_tdl_windows(progress=None) -> str:
+    """Download the Telegram downloader into Busy's own bin directory.
+
+    tdl is not in winget or scoop, so the only honest options are "download a
+    zip from GitHub by hand" or this.
+    """
+    if not IS_WIN:
+        raise RuntimeError("Windows only")
+
+    target = bin_dir()
+    if progress:
+        progress("Скачиваю tdl...")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        archive = os.path.join(tmp, "tdl.zip")
+        with urllib.request.urlopen(TDL_WIN_URL, timeout=120) as resp:
+            total = int(resp.headers.get("Content-Length") or 0)
+            done = 0
+            with open(archive, "wb") as fh:
+                while True:
+                    chunk = resp.read(1024 * 256)
+                    if not chunk:
+                        break
+                    fh.write(chunk)
+                    done += len(chunk)
+                    if progress and total:
+                        progress(f"Скачиваю tdl... {done * 100 // total}%")
+
+        if progress:
+            progress("Распаковываю tdl...")
+        with zipfile.ZipFile(archive) as zf:
+            for member in zf.namelist():
+                if os.path.basename(member).lower() == "tdl.exe":
+                    with zf.open(member) as src, open(os.path.join(target, "tdl.exe"), "wb") as dst:
+                        shutil.copyfileobj(src, dst)
+                    break
+
+    exe = os.path.join(target, "tdl.exe")
+    if not os.path.exists(exe):
+        raise RuntimeError("tdl.exe не найден в архиве")
     ensure_path()
     return exe
 

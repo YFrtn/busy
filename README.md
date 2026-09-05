@@ -155,7 +155,7 @@ irm https://raw.githubusercontent.com/YFrtn/busy/main/install.ps1 | iex
 
 Как это устроено на разных системах:
 
-- **Windows** — FFmpeg Busy скачивает сам в `%LOCALAPPDATA%\Busy\bin`, права администратора не нужны. Если есть `winget`, используется он.
+- **Windows** — FFmpeg и tdl Busy скачивает сам в `%LOCALAPPDATA%\Busy\bin`, права администратора не нужны. Через `winget` ставится только yt-dlp; пакета `tdl` в winget и scoop нет вообще.
 - **macOS** — всё ставится через Homebrew: `brew install ffmpeg`, `brew install telegram-downloader`.
 - **Linux** — `apt`/`dnf`/`pacman`.
 
@@ -229,7 +229,9 @@ FFmpeg не установлен. Windows: экран зависимостей �
 Busy сам возьмёт свободный порт. Задать вручную: переменная окружения `PORT`.
 
 **Telegram: «TDL не установлен»**
-macOS: `brew install telegram-downloader`. Windows: `winget install tdl` или [бинарник со страницы релизов tdl](https://github.com/iyear/tdl/releases). Вкладка Telegram — необязательная часть, остальное работает и без неё.
+Windows: нажмите «Установить» на экране зависимостей — Busy скачает tdl сам в `%LOCALAPPDATA%\Busy\bin`. Ставить через `winget` не получится: пакета `tdl` там нет (как и в scoop). Вручную — [tdl_Windows_64bit.zip со страницы релизов](https://github.com/iyear/tdl/releases), из архива нужен только `tdl.exe`, положить его в `%LOCALAPPDATA%\Busy\bin`.
+macOS: `brew install telegram-downloader`.
+Вкладка Telegram — необязательная часть, остальное работает и без неё.
 
 ---
 

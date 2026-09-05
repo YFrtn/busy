@@ -672,6 +672,11 @@ def deps_install():
                 cmds = [[sys.executable, "-m", "pip", "install", "-U", "yt-dlp"]]
             # Windows: download ffmpeg ourselves — no package manager needed,
             # no UAC prompt hiding behind the app window.
+            # tdl exists in no Windows package manager — fetch the release zip.
+            elif pkg in ("tdl", "telegram-downloader") and plat.IS_WIN:
+                plat.download_tdl_windows(progress=lambda m: job.__setitem__("output", m))
+                job["status"] = "done"
+                return
             elif pkg == "ffmpeg" and plat.IS_WIN:
                 plat.download_ffmpeg_windows(progress=lambda m: job.__setitem__("output", m))
                 job["status"] = "done"
